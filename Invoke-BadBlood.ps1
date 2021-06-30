@@ -96,7 +96,9 @@ if ($badblood -eq 'badblood') {
       {
          Write-Progress -Activity "Random Stuff into A domain" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
          .($basescriptPath + '\AD_LAPS_Install\InstallLAPSSchema.ps1')
-         Write-Progress -Activity "Random Stuff into A domain: Install LAPS" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
+	 if($NonInteractive -eq $false){
+             Write-Progress -Activity "Random Stuff into A domain: Install LAPS" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
+         }
       }
    else{}
    
@@ -107,7 +109,9 @@ if ($badblood -eq 'badblood') {
    if ($PSBoundParameters.ContainsKey('SkipOuCreation') -eq $false)
       {
          .($basescriptPath + '\AD_OU_CreateStructure\CreateOUStructure.ps1')
-         Write-Progress -Activity "Random Stuff into A domain - Creating OUs" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
+         if($NonInteractive -eq $false){
+              Write-Progress -Activity "Random Stuff into A domain - Creating OUs" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
+         }
       }
    else{}
    $I++
@@ -117,7 +121,9 @@ if ($badblood -eq 'badblood') {
    write-host "Creating Users on Domain" -ForegroundColor Green
     
    $x = 1
-   Write-Progress -Activity "Random Stuff into A domain - Creating Users" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
+   if($NonInteractive -eq $false){
+       Write-Progress -Activity "Random Stuff into A domain - Creating Users" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
+   }
    $I++
    .($basescriptPath + '\AD_Users_Create\CreateUsers.ps1')
    $createuserscriptpath = $basescriptPath + '\AD_Users_Create\'
@@ -146,7 +152,9 @@ if ($badblood -eq 'badblood') {
    #Group Creation
    $I++
    $AllUsers = Get-aduser -Filter *
-   Write-Progress -Activity "Random Stuff into A domain - Creating Groups" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
+   if($NonInteractive -eq $false){
+      Write-Progress -Activity "Random Stuff into A domain - Creating Groups" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
+   }
    write-host "Creating Groups on Domain" -ForegroundColor Green
 
    $x = 1
@@ -173,7 +181,9 @@ if ($badblood -eq 'badblood') {
    $I++
    $X = 1
    $Jobs = @()
-   Write-Progress -Activity "Random Stuff into A domain - Creating Computers" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
+   if($NonInteractive -eq $false){
+       Write-Progress -Activity "Random Stuff into A domain - Creating Computers" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
+   }
    .($basescriptPath + '\AD_Computers_Create\CreateComputers.ps1')
 
    do {
@@ -193,7 +203,9 @@ if ($badblood -eq 'badblood') {
    #Permission Creation of ACLs
    $I++
    write-host "Creating Permissions on Domain" -ForegroundColor Green
-   Write-Progress -Activity "Random Stuff into A domain - Creating Random Permissions" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
+   if($NonInteractive -eq $false){
+      Write-Progress -Activity "Random Stuff into A domain - Creating Random Permissions" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
+   }
    .($basescriptPath + '\AD_Permissions_Randomizer\GenerateRandomPermissions.ps1')
     
     
@@ -201,7 +213,9 @@ if ($badblood -eq 'badblood') {
    $I++
    write-host "Nesting objects into groups on Domain" -ForegroundColor Green
    .($basescriptPath + '\AD_Groups_Create\AddRandomToGroups.ps1')
-   Write-Progress -Activity "Random Stuff into A domain - Adding Stuff to Stuff and Things" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
+   if($NonInteractive -eq $false){
+      Write-Progress -Activity "Random Stuff into A domain - Adding Stuff to Stuff and Things" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
+   }
    AddRandomToGroups -Domain $Domain -Userlist $AllUsers -GroupList $Grouplist -LocalGroupList $LocalGroupList -complist $Complist
 
    write-host "Creating random SPNs" -ForegroundColor Green
