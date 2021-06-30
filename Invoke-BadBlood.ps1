@@ -104,6 +104,9 @@ if ($badblood -eq 'badblood') {
    
    $I++
 
+   $initUsers = Get-ADUser -Filter * | %{ $_.DistinguishedName}
+   $initOU = Get-ADOrganizationalUnit -Filter * | %{ $_.DistinguishedName }
+   $initGroups = Get-ADGroup -Filter * | %{$_.DistinguishedName}
 
    #OU Structure Creation
    if ($PSBoundParameters.ContainsKey('SkipOuCreation') -eq $false)
@@ -116,8 +119,9 @@ if ($badblood -eq 'badblood') {
    else{}
    $I++
 
+
    # User Creation
-   $ousAll = Get-adorganizationalunit -filter *
+   $ousAll = Get-adorganizationalunit -filter * | %{ if(-not $initOU.contains($_.Distinguishedname)){$_}}
    write-host "Creating Users on Domain" -ForegroundColor Green
     
    $x = 1
@@ -151,7 +155,7 @@ if ($badblood -eq 'badblood') {
    $Jobs = @()
    #Group Creation
    $I++
-   $AllUsers = Get-aduser -Filter *
+   $AllUsers = Get-aduser -Filter * | %{ if(-not $initUsers.contains($_.Distinguishedname)){$_}}
    if($NonInteractive -eq $false){
       Write-Progress -Activity "Random Stuff into A domain - Creating Groups" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
    }
@@ -173,7 +177,7 @@ if ($badblood -eq 'badblood') {
    }
 
 
-   $Grouplist = Get-ADGroup -Filter { GroupCategory -eq "Security" -and GroupScope -eq "Global" } -Properties isCriticalSystemObject
+   $Grouplist = Get-ADGroup -Filter { GroupCategory -eq "Security" -and GroupScope -eq "Global" } -Properties isCriticalSystemObject | %{ if(-not $initGroups.contains($_.Distinguishedname)){$_}}
    $LocalGroupList = Get-ADGroup -Filter { GroupScope -eq "domainlocal" } -Properties isCriticalSystemObject
 
    #Computer Creation Time
