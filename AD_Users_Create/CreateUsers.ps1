@@ -52,17 +52,21 @@
     )
     
         if(!$PSBoundParameters.ContainsKey('Domain')){
-                $setDC = (Get-ADDomain).pdcemulator
-                $dnsroot = (get-addomain).dnsroot
+                $D = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
+                $setDC = $D.PdcRoleOwner
+                $dnsroot = $D.Name
             }
             else {
                 $setDC = $Domain.pdcemulator
                 $dnsroot = $Domain.dnsroot
             }
         if (!$PSBoundParameters.ContainsKey('OUList')){
-            $OUsAll = get-adobject -Filter {objectclass -eq 'organizationalunit'} -ResultSetSize 300
+            $info = ([adsisearcher]"objectclass=organizationalunit")
+            $info.PropertiesToLoad.AddRange("distinguishedname")
+            $OUsAll = $info.findall() | %{ $_.Properties.distinguishedname}
+           # $OUsAll = get-adobject -Filter {objectclass -eq 'organizationalunit'} -ResultSetSize 300
         }else {
-            $OUsAll = $OUList
+            $OUsAll = $OUList | %{$_.DistinguishedName}
         }
         if (!$PSBoundParameters.ContainsKey('ScriptDir')){
             function Get-ScriptDirectory {
@@ -222,7 +226,7 @@
     
     #will work on adding things to containers later $ousall += get-adobject -Filter {objectclass -eq 'container'} -ResultSetSize 300|where-object -Property objectclass -eq 'container'|where-object -Property distinguishedname -notlike "*}*"|where-object -Property distinguishedname -notlike  "*DomainUpdates*"
     
-    $ouLocation = ($OUsAll | Get-Random).distinguishedname
+    $ouLocation = $OUsAll | Get-Random
     
     
     
@@ -265,18 +269,35 @@
 
     $exists = $null
     try {
-        $exists = Get-ADUSer $name -ErrorAction Stop
+       $D = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
+       $Domain = [ADSI]"LDAP://$D"
+       $Searcher = New-Object System.DirectoryServices.DirectorySearcher
+       $Searcher.Filter = "(&(objectCategory=person)(objectClass=user)(SamAccountName=$name))"
+       $Searcher.SearchRoot = "LDAP://" + $Domain.distinguishedName
+       $Results = $Searcher.FindAll()
+       if($Results.count -gt 0){
+          $xists = $true
+       }
+       #$exists = Get-ADUSer $name -ErrorAction Stop
     } catch{}
 
     if($exists){
         return $true
     }
 
-    new-aduser -server $setdc  -Description $Description -DisplayName $name -name $name -SamAccountName $name -Surname $name -Enabled $true -Path $ouLocation -AccountPassword (ConvertTo-SecureString ($pwd) -AsPlainText -force)
-    
-    
-    
-        
+   [adsi]$OU = "LDAP://$ouLocation"
+   $new = $OU.Create("User","CN=$name")
+   $new.CommitChanges()
+   $new.put("Description",$Description)
+   $new.put("DisplayName",$name)
+   $new.put("SamAccountName",$name)
+  # $new.put("cn",$name)
+  # $new.put("sn",$name)
+   $new.CommitChanges()
+   $new.setpassword($pwd)
+   $new.put("UserAccountControl",($new.Get("UserAccountControl") -bxor 0x2))
+   $new.CommitChanges()
+
     
     $pwd = ''
 
@@ -286,7 +307,8 @@
     
     $setASREP = 1..1000|get-random
     if($setASREP -lt 20){
-	Get-ADuser $name | Set-ADAccountControl -DoesNotRequirePreAuth:$true
+     $new.put("UserAccountControl",($new.Get("UserAccountControl") -bxor 0x400000))
+     $new.CommitChanges()
     }
     
     #===============================
@@ -295,8 +317,8 @@
     #===============================
     
     $upn = $name + '@' + $dnsroot
-    try{Set-ADUser -Identity $name -UserPrincipalName "$upn" }
-    catch{}
+    $new.put("UserPrincipalname",$upn)
+    $new.CommitChanges()
     
     return $false
     ################################
