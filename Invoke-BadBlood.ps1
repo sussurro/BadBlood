@@ -132,9 +132,20 @@ if ($badblood -eq 'badblood') {
    .($basescriptPath + '\AD_Users_Create\CreateUsers.ps1')
    $createuserscriptpath = $basescriptPath + '\AD_Users_Create\'
 
-   $RunspacePool = [runspacefactory]::CreateRunspacePool(1, 10)
+   $RunspacePool = [runspacefactory]::CreateRunspacePool(1, 5)
    $RunspacePool.Open()
    $Jobs = @()
+
+   $userblock = {
+    Param(
+        $basescriptPath,
+        $Domain,
+        $ousAll)
+     . ($basescriptPath + '\AD_Users_Create\CreateUsers.ps1')
+     $createuserscriptpath = $basescriptPath + '\AD_Users_Create\'
+
+     CreateUser -Domain $Domain -OUList $ousAll -ScriptDir $createuserscriptpath
+   }
 
 
 
@@ -142,7 +153,9 @@ if ($badblood -eq 'badblood') {
 
       $PowerShell = [powershell]::Create()
       $PowerShell.RunspacePool = $RunspacePool
-      $PowerShell.AddScript({createuser -Domain $Domain -OUList $ousAll -ScriptDir $createuserscriptpath}) | Out-Null
+
+      $null = $PowerShell.AddScript($userblock).AddArgument($basescriptpath).AddArgument($Domain).AddArgument($ousAll)
+
       $Jobs += $PowerShell.BeginInvoke()
        $x++
 

@@ -222,7 +222,7 @@
     
     #will work on adding things to containers later $ousall += get-adobject -Filter {objectclass -eq 'container'} -ResultSetSize 300|where-object -Property objectclass -eq 'container'|where-object -Property distinguishedname -notlike "*}*"|where-object -Property distinguishedname -notlike  "*DomainUpdates*"
     
-    $ouLocation = (Get-Random $OUsAll).distinguishedname
+    $ouLocation = ($OUsAll | Get-Random).distinguishedname
     
     
     
