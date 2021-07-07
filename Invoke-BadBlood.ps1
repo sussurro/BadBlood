@@ -175,12 +175,16 @@ if ($badblood -eq 'badblood') {
    write-host "Creating Groups on Domain" -ForegroundColor Green
 
    $x = 1
-   .($basescriptPath + '\AD_Groups_Create\CreateGroups.ps1')
-    
+   $groupcreate = {
+      Param($bp)
+
+   . ($bp + '\AD_Groups_Create\CreateGroups.ps1')
+    CreateGroup
+    }
    do {
       $PowerShell = [powershell]::Create()
       $PowerShell.RunspacePool = $RunspacePool
-      $PowerShell.AddScript({CreateGroup}) | Out-Null
+      $PowerShell.AddScript($groupcreate).AddArgument($basescriptpath) | Out-Null
       $Jobs += $PowerShell.BeginInvoke() | Out-Null
 
       $x++

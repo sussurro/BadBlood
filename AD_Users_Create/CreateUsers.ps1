@@ -276,7 +276,7 @@
        $Searcher.SearchRoot = "LDAP://" + $Domain.distinguishedName
        $Results = $Searcher.FindAll()
        if($Results.count -gt 0){
-          $xists = $true
+          $exists = $true
        }
        #$exists = Get-ADUSer $name -ErrorAction Stop
     } catch{}
