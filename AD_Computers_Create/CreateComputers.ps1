@@ -24,10 +24,11 @@ Function CreateComputer{
 
     
     #=======================================================================
-    
-    
-    $setDC = (Get-ADDomain).pdcemulator
-    $userlist = get-adobject -Filter {objectclass -eq 'user'} -ResultSetSize 2500 -Server $setdc|Where-object -Property objectclass -eq user
+    $elapsed = [System.Diagnostics.Stopwatch]::StartNew()
+    $D = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
+    $setDC = $D.PdcRoleOwner
+    $dnsroot = $D.Name
+   # $userlist = get-adobject -Filter {objectclass -eq 'user'} -ResultSetSize 2500 -Server $setdc|Where-object -Property objectclass -eq user
     function Get-ScriptDirectory {
         Split-Path -Parent $PSCommandPath
     }
@@ -35,16 +36,27 @@ Function CreateComputer{
     $scriptparent = (get-item $scriptpath).parent.fullname
     $3lettercodes = import-csv ($scriptparent + "\AD_OU_CreateStructure\3lettercodes.csv")
     #=======================================================================
-    $dn = (get-addomain).distinguishedname
-        
+    $dn = ($D.GetDirectoryEntry()).distinguishedname
+    $Domain = [ADSI]"LDAP://$D"
+    $Searcher = New-Object System.DirectoryServices.DirectorySearcher
+    $Searcher.Filter = "(&(objectClass=organizationalUnit))"
+    $Searcher.SearchRoot = "LDAP://" + $Domain.distinguishedName
+    $Results = $Searcher.FindAll()
+    $OUsAll = $Results | %{ $_.Properties.distinguishedname}
+    Write-Host "1: " + $elapsed.Elapsed.ToString()
+    $Searcher.Filter = "(&(objectClass=user))"
+    $Searcher.SizeLimit = 500
+    $Results = $Searcher.FindAll()
+    $userlist = $Results  | %{ if($_.Properties.iscriticalsystemobject -eq $null){$_.Properties.distinguishedname}}
+    Write-Host "2: " + $elapsed.Elapsed.ToString()
             #get owner all parameters and store as variable to call upon later
-            $ownerinfo = Get-Random $userlist
+            $ownerinfo = $userlist | Get-Random 
                     if ($PSBoundParameters.ContainsKey('Creator') -eq $true)
                         {$adminID = $Creator
                         }
                     else{$adminID = $wtfwasthis = ((whoami) -split '\\')[1]}
     
-
+    Write-Host "3: " + $elapsed.Elapsed.ToString()
     #=======================================================================
     #name workflow
                 #get aduser who is the administratorid/ownerid ($Owner) and use their 1st part of  for the prefix
@@ -52,7 +64,7 @@ Function CreateComputer{
             
             $computernameprefix1 = (Get-Random $3lettercodes).NAME
                                    
-                    $computernameprefix2 = 'W'
+            $computernameprefix2 = 'W'
                
         #=======================================================================
         #WorkstationorServer 0 (workstation) prefix name workflow
@@ -86,9 +98,9 @@ Function CreateComputer{
         }    
                 
 
-
-                            $computernameprefixfull = $computernameprefix1 + $computernameprefix2 +$computernameprefix3
-                            $cnSearch = $computernameprefixfull +"*"
+Write-Host "4: " + $elapsed.Elapsed.ToString()
+        $computernameprefixfull = $computernameprefix1 + $computernameprefix2 +$computernameprefix3
+        $cnSearch = $computernameprefixfull +"*"
     #=======================================================================
     #End workstationorserver prefix name workflow
     #=======================================================================
@@ -104,9 +116,12 @@ Function CreateComputer{
                         {write-host OULocation for search $OUlocation -ForegroundColor Green
                         Write-host Computername Search string $cnSearch -ForegroundColor Green
                         }
-                    
+                  
+                    $Searcher.Filter = "(&(objectClass=computer)(name=*$cnsearch*))"
+                    $Searcher.SearchRoot = "LDAP://" + $ouLocation
+                    $Results = $Searcher.FindAll()
                 
-                    $comps = Get-ADComputer -SearchBase $ouLocation -f {(name -like $cnsearch) -and (name -notlike "*9999*")} |sort name|select name
+                    $comps =$Results | %{ $_.properties.name}
                     if($comps.count -eq 0){$compname = $computernameprefixfull + [convert]::ToInt32('1000000')}
                     else{
                         try{$compname = $computernameprefixfull + ([convert]::ToInt32((($comps[($comps.count -1)].name).Substring(($computernameprefixfull.Length),((($comps[($comps.count -1)].name).length)-($computernameprefixfull.Length)))),10) + 1)}
@@ -125,7 +140,7 @@ Function CreateComputer{
 
                 #end of name is 7 numbers characters 0-9
                 #select all computers in the OU, sort by create date, filter out *9999*, filter out machines with letters at the end, get most recent add a digit to it
-
+                Write-Host "5: " + $elapsed.Elapsed.ToString()
             
                 #ou root created above
                         if($WorkstationType -eq 0){ #desktop workflow
@@ -133,9 +148,9 @@ Function CreateComputer{
                                 {write-host "Workstation Type 0 chosen. Desktop value selected"}
                                         $ouLocation = 'OU=Desktops,OU=Technology,' + $dnstring
                                             #test for OU existence, if not exist, put in  Admin OU
-                                            try{Get-ADOrganizationalUnit $oulocation|Out-Null}
-                                            catch{$OUlocation = 'OU=Admin,' + (Get-ADDomain).distinguishedname}
-
+                                            try{$tst = [adsi]"LDAP://$OUlocation"; $tst | Out-Null}
+                                            catch{$OUlocation = 'OU=Admin,' + $D.distinguishedname}
+                                            Write-Host "6: " + $elapsed.Elapsed.ToString()
                                                     }
                         elseif($WorkstationType -eq 1){ #laptop workflow
                             if ($PSBoundParameters.ContainsKey('Debug') -eq $true)
@@ -143,10 +158,10 @@ Function CreateComputer{
                         
                                         $ouLocation = 'OU=Laptops,OU=Technology,' + $dnstring
                                         #test for OU existence, if not exist, put in  Admin OU
-                                        try{Get-ADOrganizationalUnit $oulocation}
-                                        catch{$OUlocation = 'OU=Admin,' + (Get-ADDomain).distinguishedname}
+                                        try{tst = [adsi]"LDAP://$OUlocation"; $tst | Out-Null}
+                                        catch{$OUlocation = 'OU=Admin,' + $D.distinguishedname}
                 
-                                                    
+                                                    Write-Host "7: " + $elapsed.Elapsed.ToString()
                                                         }
 
                         else{
@@ -154,10 +169,10 @@ Function CreateComputer{
                                 {write-host "Workstation Type 2 or higher chosen. VM or other value selected"}
                                     
                                         $ouLocation = 'OU=Desktops,OU=Technology,' + $dnstring
-                                        try{Get-ADOrganizationalUnit $oulocation}
+                                        try{tst = [adsi]"LDAP://$OUlocation"; $tst | Out-Null}
                                         #test for OU existence, if not exist, put in  Admin OU
-                                            catch{$OUlocation = 'OU=Admin,' + (Get-ADDomain).distinguishedname}
-
+                                            catch{$OUlocation = 'OU=Admin,' + $D.distinguishedname}
+                                            Write-Host "8: " + $elapsed.Elapsed.ToString()
                             }
                             
                             
@@ -183,10 +198,9 @@ Function CreateComputer{
             # END SERVER OU identification
             #=========================================
             <#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#> 
-              $OUsAll = get-adobject -Filter {objectclass -eq 'organizationalunit'} -ResultSetSize 300
               # removing containers right now. will add later $ousall += get-adobject -Filter {objectclass -eq 'container'} -ResultSetSize 300|where-object -Property objectclass -eq 'container'|where-object -Property distinguishedname -notlike "*}*"|where-object -Property distinguishedname -notlike  "*DomainUpdates*"
 
-                    $ouLocation = (Get-Random $OUsAll).distinguishedname
+                    $ouLocation = $OUsall | Get-Random 
                     if ($PSBoundParameters.ContainsKey('Debug') -eq $true)
                                 {write-host DNString equals $dnstring -ForegroundColor Green
                                 write-host OWNER equals $owner
@@ -194,12 +208,16 @@ Function CreateComputer{
                                 write-host OULocation for search $OUlocation -ForegroundColor Green}
             }     
                     #Write-host Getting list of servers in the server OU to create a unique name -ForegroundColor Green
-                    $comps = Get-ADComputer -server $setdc -f {(name -like $cnsearch) -and (name -notlike "*9999*")} |sort name|select name
+                    $Searcher.Filter = "(&(objectClass=computer)(name=*$cnsearch*))"
+                    $Searcher.SearchRoot = "LDAP://" + $ouLocation
+                    $Results = $Searcher.FindAll()
+                
+                    $comps =$Results | %{ $_.properties.name}
                     #Write-host List complete -ForegroundColor white
                     
                     #write-host on line 325
                     $checkforDupe = 0
-                    if($comps.name.count -eq 0){
+                    if($comps.count -eq 0){
                         
                         $i= 0
                         $i = [convert]::ToInt32($i)
@@ -212,9 +230,12 @@ Function CreateComputer{
                             $i =$i + (random -Minimum 1 -Maximum 10)
                                 try{
                                 #write-host doing TRY get-adcomputer $compname
-                                $z = get-adcomputer $compname  -server $setdc
-                                $checkforDupe = 0}
-                                catch{
+                                 $Searcher.Filter = "(&(objectClass=computer)(name=$compname))"
+                                 $Searcher.SearchRoot = "LDAP://" + $Domain.distinguishedName
+                                 $Results = $Searcher.FindAll()
+                                 $checkforDupe = $Results.Count - 1
+                                 Write-Host "L1: $compname " + $elapsed.Elapsed.ToString()
+                               } catch{
                                 #write-host doing Catch
                                 $checkforDupe = 1}}
                     
@@ -236,8 +257,12 @@ Function CreateComputer{
                         catch{$compname = $computernameprefixfull + ([convert]::ToInt32('1000000') + ($i))}
                         
                        
-                                try{$z = get-adcomputer $compname -server $setdc
-                                    $checkfordupe = 0}
+                                try{
+                                 $Searcher.Filter = "(&(objectClass=computer)(name=$compname))"
+                                 $Searcher.SearchRoot = "LDAP://" + $Domain.distinguishedName
+                                 $Results = $Searcher.FindAll()
+                                  $checkforDupe = $Results.Count - 1
+                                     }
                                 catch{$checkforDupe = 1}
                                 $i++
                         
@@ -262,7 +287,7 @@ Function CreateComputer{
 
     $division = $computernameprefix1
 
-    $manager = $ownerinfo.distinguishedname 
+    $manager = $ownerinfo
     $sam = ($CompName) + "$"
 
     $DNS = 1..100|get-random
@@ -282,22 +307,49 @@ Function CreateComputer{
                                 write-host "New-ADComputer -server $setdc -Name $CompName -DisplayName $CompName -Enabled $true -path $ou -ManagedBy $manager -owner $owner -SAMAccountName $sam"
                                 write-host `n}
                                 $description = 'Created with secframe.com/badblood.'
+                                $new = $null
+                                try{
+                                    [adsi]$OU = "LDAP://$ou"
+                                    $new = $OU.Create("Computer","CN=$CompName")
+                                    $new.CommitChanges()
+                                }catch{
+                                    [adsi]$OU = "LDAP://" + $Domain.distinguishedName
+                                    $new = $OU.Create("Computer","CN=$CompName")
+                                    $new.CommitChanges()
+                                    $new.put('managedby',$manager)
+                               
+                                }
+                                if($new -eq $null)
+                                {
+                                    return
+                                }
+                                #  Enabled $true -path $ou -ManagedBy $manager -SAMAccountName $sam -Description $Description}
+                                   $new.put('samaccountname',$sam)
+                                    $new.put('description',$Description)
+                                    $new.CommitChanges()
+
+
             #something is up with system containers i  pull in earlier.  try the random path.  if doesnt work set to default computer container
-                                try{New-ADComputer -server $setdc -Name $CompName -DisplayName $CompName -Enabled $true -path $ou -ManagedBy $manager -SAMAccountName $sam -Description $Description}
-                                catch{New-ADComputer -server $setdc -Name $CompName -DisplayName $CompName -Enabled $true -ManagedBy $manager -SAMAccountName $sam -Description $Description}
+                              #  try{New-ADComputer -server $setdc -Name $CompName -DisplayName $CompName -Enabled $true -path $ou -ManagedBy $manager -SAMAccountName $sam -Description $Description}
+                               # catch{New-ADComputer -server $setdc -Name $CompName -DisplayName $CompName -Enabled $true -ManagedBy $manager -SAMAccountName $sam -Description $Description}
 
 
     #Check for machine.  if it does not exist, skip this next parameter setting stuff
     $results = $null
-    try{$results = Get-ADComputer $sam -server $setdc
-        foreach ($a in $att_to_add){
+    try{
+    $Searcher.Filter = "(&(objectClass=computer)(name=$compname))"
+    $Searcher.SearchRoot = "LDAP://" + $Domain.distinguishedName
+    $Results = $Searcher.FindAll()
+    $z = [adsi]"LDAP://$(*$Results | select -first 1).distinguishedname)"
+            foreach ($a in $att_to_add){
                             $var = iex $("$"+$a)
                             #comment out bottom line once debugging complete
                             if ($PSBoundParameters.ContainsKey('Debug') -eq $true)
                                 {
                                    # write-host on $a parameter with variable $var
                                 }
-                            get-adcomputer $sam -server $setdc  |Set-ADComputer -server $setdc -replace @{$a = $($var)}
+                            $z.put($a,$($var))
+                            #get-adcomputer $sam -server $setdc  |Set-ADComputer -server $setdc -replace @{$a = $($var)}
                         }
                     #write-host `n
                     
@@ -309,13 +361,14 @@ Function CreateComputer{
                     #write-host `n
                     #write-host Machine $results.samaccountname created in ((get-addomain).distinguishedname) in OU $OUlocation
                     
-                    
+                       $z.CommitChanges()
+                   
                     }
     catch {
     #write-host Machine $sam was not created with code:
-    #write-host "`t`t`tNew-ADComputer -Name $CompName -DisplayName $CompName -Enabled $true -path $ou -ManagedBy $manager -SAMAccountName $sam"
+    #write-host "New-ADComputer -Name $CompName -DisplayName $CompName -Enabled $true -path $ou -ManagedBy $manager -SAMAccountName $sam"
     }
-
+  
 
     $done = @()
 

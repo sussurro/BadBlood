@@ -205,12 +205,14 @@ if ($badblood -eq 'badblood') {
    if($NonInteractive -eq $false){
        Write-Progress -Activity "Random Stuff into A domain - Creating Computers" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
    }
+   $makecomputer = {
    .($basescriptPath + '\AD_Computers_Create\CreateComputers.ps1')
-
+   createcomputer
+   }
    do {
       $PowerShell = [powershell]::Create()
       $PowerShell.RunspacePool = $RunspacePool
-      $PowerShell.AddScript({createcomputer}) | Out-Null
+      $PowerShell.AddScript($makecomputer) | Out-Null
       $Jobs += $PowerShell.BeginInvoke()
       $x++
    }while ($x -lt $ComputerCount)

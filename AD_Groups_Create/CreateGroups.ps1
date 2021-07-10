@@ -1,21 +1,25 @@
 Function CreateGroup{
+    $elapsed = [System.Diagnostics.Stopwatch]::StartNew() 
 
     $D = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
     $setDC = $D.PdcRoleOwner
     $dnsroot = $D.Name
-    
+    $dn = ([adsi]'').distinguishedName
+    Write-Host "1: " + $elapsed.Elapsed.ToString()    
     #=======================================================================
     #P1
     #set owner and creator here
     
         #p1
-        $D = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
-        $Domain = [ADSI]"LDAP://$D"
+      
+        $Domain = [ADSI]"LDAP://$($D.name)/$dn"
         $Searcher = New-Object System.DirectoryServices.DirectorySearcher
         $Searcher.Filter = "(&(objectCategory=person)(objectClass=user))"
-        $Searcher.SearchRoot = "LDAP://" + $Domain.distinguishedName
+        $Searcher.SizeLimit= 100
+        $Searcher.SearchRoot = "LDAP://$($D.name)/$dn"
+        $Searcher.CacheResults = $true
         $Results = $Searcher.FindAll()
-
+         Write-Host "2: " + $elapsed.Elapsed.ToString()
         #$userlist = get-aduser -ResultSetSize 2500 -Server $setdc -Filter *
         $ownerinfo = $Results | get-random
         
@@ -26,7 +30,7 @@ Function CreateGroup{
     
     
     $Description = 'Follow Davidprowe on twitter for updates to this script'
-    
+     Write-Host "3: " + $elapsed.Elapsed.ToString()
     #================================
     # OU LOCATION
     #================================
@@ -36,7 +40,7 @@ Function CreateGroup{
     $info.PropertiesToLoad.AddRange("distinguishedname")
     $OUsAll = $info.findall() | %{ $_.Properties.distinguishedname}
     $ouLocation = $OUsAll | Get-Random
-
+     Write-Host "1: " + $elapsed.Elapsed.ToString()
     #==========================================
     #END OU WORKFLOW
     
@@ -52,7 +56,7 @@ Function CreateGroup{
     if($functionint -le 25){$function = 'admingroup'}else{$function = 'distlist'}              
     $GroupNameFull = $Groupnameprefix + '-'+$Application+ '-'+$Function
                                             
-    
+     Write-Host "1: " + $elapsed.Elapsed.ToString()
     $departmentnumber = [convert]::ToInt32('9999999')
        
     #Append name if duplicate name created
@@ -66,11 +70,9 @@ Function CreateGroup{
             }
         $i++
         try{
-           $D = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
-           $Domain = [ADSI]"LDAP://$D"
-           $Searcher = New-Object System.DirectoryServices.DirectorySearcher
            $Searcher.Filter = "(&(objectCategory=person)(objectClass=user)(SamAccountName=$GroupNameFull))"
            $Searcher.SearchRoot = "LDAP://" + $Domain.distinguishedName
+           $Searcher.PropertiesToLoad('distinguishedname')
            $Results = $Searcher.FindAll()
            if($Results.count -gt 0){
               $checkAcct = $Results | Select -first 1
