@@ -194,8 +194,6 @@ if ($badblood -eq 'badblood') {
    }
 
 
-   $Grouplist = Get-ADGroup -Filter { GroupCategory -eq "Security" -and GroupScope -eq "Global" } -Properties isCriticalSystemObject | %{ if(-not $initGroups.contains($_.Distinguishedname)){$_}}
-   $LocalGroupList = Get-ADGroup -Filter { GroupScope -eq "domainlocal" } -Properties isCriticalSystemObject
 
    #Computer Creation Time
    write-host "Creating Computers on Domain" -ForegroundColor Green
@@ -222,6 +220,13 @@ if ($badblood -eq 'badblood') {
 
    $Complist = get-adcomputer -filter *
     
+       $Grouplist = Get-ADGroup -Filter { GroupCategory -eq "Security" -and GroupScope -eq "Global" } -Properties isCriticalSystemObject | %{ if(-not $initGroups.contains($_.Distinguishedname)){$_}}
+
+
+   $LocalGroupList = Get-ADGroup -Filter { GroupScope -eq "domainlocal" } -Properties isCriticalSystemObject
+
+
+
 
    #Permission Creation of ACLs
    $I++
@@ -239,6 +244,7 @@ if ($badblood -eq 'badblood') {
    if($NonInteractive -eq $false){
       Write-Progress -Activity "Random Stuff into A domain - Adding Stuff to Stuff and Things" -Status "Progress:" -PercentComplete ($i / $totalscripts * 100)
    }
+
    AddRandomToGroups -Domain $Domain -Userlist $AllUsers -GroupList $Grouplist -LocalGroupList $LocalGroupList -complist $Complist
 
    write-host "Creating random SPNs" -ForegroundColor Green

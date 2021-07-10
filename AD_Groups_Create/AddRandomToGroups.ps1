@@ -57,7 +57,7 @@ Function AddRandomToGroups {
     }else {
         $allcomps = $CompList
     }
-    
+Push-location
 cd ad:
 
 <#Pick X number of random users#>
@@ -73,7 +73,7 @@ PS \BadBlood> $groupsall|where-object -Property iscriticalsystemobject -eq $true
 #get user list
 
 $AddUserstoGroups = get-random -count $UsersInGroupCount -InputObject $allUsers
-$allGroupsFiltered = $allGroups|where-object -Property iscriticalsystemobject -ne $true
+$allGroupsFiltered = $allGroups|where-object -Property iscriticalsystemobject -eq $null
 
 #add a large number of users to a large number of non critical groups
 Foreach ($user in $AddUserstoGroups){
@@ -166,4 +166,6 @@ Foreach ($comp in $addcompstogroups){
 
 
 }
+Pop-location
+
 
